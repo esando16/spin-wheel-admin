@@ -149,7 +149,7 @@
 
       const loadFromSheet = async () => {
         if (!sheetUrl) {
-          alert('Please configure Google Sheet URL first');
+          alert('Please configure Google Sheet URL first in Setup');
           return;
         }
 
@@ -157,38 +157,39 @@
         try {
           const sheetId = extractSheetId(sheetUrl);
           console.log('Sheet ID:', sheetId);
-          console.log('Fetching from:', `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`);
           
-          const response = await fetch(
-            `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`
-          );
+          const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+          console.log('Fetching from:', url);
+          
+          const response = await fetch(url);
           
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
           
           const text = await response.text();
-          console.log('Response received');
+          console.log('Response received, length:', text.length);
+          
           const json = JSON.parse(text.substring(47).slice(0, -2));
+          console.log('Parsed JSON:', json);
           
           const loadedNames = json.table.rows
             .slice(1)
-            .map(row => row.c[0]?.v)
+            .map(row => row.c && row.c[0] ? row.c[0].v : null)
             .filter(name => name && name.trim() && name !== 'Name');
           
           console.log('Loaded names:', loadedNames);
           
           if (loadedNames.length === 0) {
-            alert('No names found! Make sure:\n1. Sheet is public\n2. Names are in column A\n3. Row 1 has "Name" header\n4. Names start in row 2');
+            alert('No names found!\n\nMake sure:\n• Sheet is public (Anyone with link → Viewer)\n• Cell A1 has "Name"\n• Names are in column A starting from A2\n• At least one name exists');
           } else {
-            alert(`Successfully loaded ${loadedNames.length} names!`);
+            alert(`✅ Successfully loaded ${loadedNames.length} names!`);
+            setNames(loadedNames);
+            setWinner(null);
           }
-          
-          setNames(loadedNames);
-          setWinner(null);
         } catch (error) {
           console.error('Error details:', error);
-          alert(`Error loading from sheet: ${error.message}\n\nMake sure:\n1. Sheet is shared publicly\n2. URL is correct\n3. Names are in column A`);
+          alert(`❌ Error loading from sheet:\n${error.message}\n\nChecklist:\n• Is the sheet public?\n• Is the URL correct?\n• Are names in column A?`);
         }
         setIsLoading(false);
       };
@@ -199,9 +200,13 @@
       };
 
       const saveSheetUrl = () => {
+        if (!sheetUrl) {
+          alert('Please enter a Google Sheet URL');
+          return;
+        }
         localStorage.setItem('wheelSheetUrl', sheetUrl);
         setShowSetup(false);
-        alert('Sheet URL saved! Now click "Refresh Names"');
+        alert('✅ Sheet URL saved!\n\nNow click "Refresh Names" to load entries.');
       };
 
       const addName = () => {
@@ -224,7 +229,7 @@
       };
 
       const clearAll = () => {
-        if (window.confirm('Clear all names?')) {
+        if (window.confirm('Clear all names from the wheel?')) {
           setNames([]);
           setWinner(null);
         }
@@ -233,15 +238,15 @@
       return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
           <div className="max-w-6xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
               <h1 className="text-4xl font-bold text-white flex items-center gap-3">
                 🏆 Spin the Wheel
               </h1>
               <button
                 onClick={() => setShowSetup(!showSetup)}
-                className="bg-white text-indigo-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition font-semibold"
+                className="bg-white text-indigo-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition font-semibold shadow-lg"
               >
-                ⚙️ Setup
+                ⚙️ {showSetup ? 'Close' : 'Setup'}
               </button>
             </div>
 
@@ -249,41 +254,52 @@
               <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Google Sheets Configuration</h2>
                 
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded">
+                  <p className="text-sm text-blue-900 font-semibold mb-2">📋 Setup Checklist:</p>
+                  <ul className="text-sm text-blue-800 space-y-1 list-disc ml-5">
+                    <li>Open your Google Sheet</li>
+                    <li>Click Share → "Anyone with the link" → Viewer</li>
+                    <li>Cell A1 should contain "Name"</li>
+                    <li>Names should be in column A starting from A2</li>
+                    <li>Copy the sheet URL from your browser's address bar</li>
+                  </ul>
+                </div>
+
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Google Sheet URL:
+                      📊 Google Sheet URL:
                     </label>
                     <input
                       type="text"
                       value={sheetUrl}
                       onChange={(e) => setSheetUrl(e.target.value)}
                       placeholder="https://docs.google.com/spreadsheets/d/..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"
                     />
                   </div>
                   
                   <button
                     onClick={saveSheetUrl}
-                    className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-semibold"
+                    className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold shadow-lg"
                   >
-                    Save Configuration
+                    💾 Save Configuration
                   </button>
                 </div>
 
-                <div className="mt-4 bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-blue-900 font-semibold mb-2">Setup Checklist:</p>
-                  <ul className="text-sm text-blue-800 space-y-1 list-disc ml-4">
-                    <li>Sheet is shared publicly (Anyone with link → Viewer)</li>
-                    <li>Cell A1 contains "Name"</li>
-                    <li>Names are in column A starting from A2</li>
-                  </ul>
+                <div className="mt-4 bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+                  <p className="text-sm text-purple-900">
+                    <strong>📱 Entry Form URL:</strong><br/>
+                    <a href="https://esando16.github.io/spin-wheel-entry/" target="_blank" className="text-purple-600 underline break-all hover:text-purple-800">
+                      https://esando16.github.io/spin-wheel-entry/
+                    </a>
+                  </p>
                 </div>
               </div>
             )}
 
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-white rounded-2xl shadow-2xl p-8">
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 bg-white rounded-2xl shadow-2xl p-8">
                 <div className="flex flex-col items-center">
                   <canvas
                     ref={canvasRef}
@@ -292,13 +308,14 @@
                     className="mb-6"
                   />
                   
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-wrap justify-center">
                     <button
                       onClick={loadFromSheet}
                       disabled={isLoading || !sheetUrl}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      className="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg flex items-center gap-2"
                     >
-                      🔄 {isLoading ? 'Loading...' : 'Refresh Names'}
+                      <span className={isLoading ? 'animate-spin' : ''}>🔄</span>
+                      {isLoading ? 'Loading...' : 'Refresh Names'}
                     </button>
                     
                     <button
@@ -311,9 +328,9 @@
                   </div>
 
                   {winner && (
-                    <div className="mt-6 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-xl text-center shadow-lg animate-bounce">
+                    <div className="mt-6 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-xl text-center shadow-2xl animate-bounce">
                       <p className="text-sm font-semibold">🎉 WINNER 🎉</p>
-                      <p className="text-2xl font-bold">{winner}</p>
+                      <p className="text-3xl font-bold mt-1">{winner}</p>
                     </div>
                   )}
                 </div>
@@ -321,55 +338,63 @@
 
               <div className="space-y-6">
                 <div className="bg-white rounded-2xl shadow-2xl p-6">
-                  <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Add</h2>
+                  <h2 className="text-xl font-bold text-gray-800 mb-4">✏️ Quick Add</h2>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={currentName}
                       onChange={(e) => setCurrentName(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder="Name"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                      placeholder="Enter name..."
+                      className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
                       maxLength={30}
                     />
                     <button
                       onClick={addName}
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
                     >
                       Add
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">Manually add names to the wheel</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-2xl p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                      👥 Participants ({names.length})
+                      👥 Participants <span className="text-sm font-normal text-gray-500">({names.length})</span>
                     </h2>
                     {names.length > 0 && (
                       <button
                         onClick={clearAll}
-                        className="text-red-600 hover:text-red-700 transition"
+                        className="text-red-600 hover:text-red-700 transition text-sm font-semibold"
+                        title="Clear all names"
                       >
-                        🗑️
+                        🗑️ Clear
                       </button>
                     )}
                   </div>
-                  <div className="max-h-80 overflow-y-auto space-y-2">
+                  <div className="max-h-96 overflow-y-auto space-y-2">
                     {names.length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">
-                        {sheetUrl ? 'Click "Refresh Names" to load from sheet' : 'Configure Google Sheet in Setup'}
-                      </p>
+                      <div className="text-center py-8">
+                        <p className="text-gray-400 text-sm mb-2">No participants yet</p>
+                        {sheetUrl ? (
+                          <p className="text-xs text-gray-500">Click "Refresh Names" to load from Google Sheets</p>
+                        ) : (
+                          <p className="text-xs text-gray-500">Click "Setup" to configure Google Sheets</p>
+                        )}
+                      </div>
                     ) : (
                       names.map((name, index) => (
                         <div
                           key={index}
-                          className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg"
+                          className="flex justify-between items-center bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition"
                         >
-                          <span className="text-gray-800">{name}</span>
+                          <span className="text-gray-800 font-medium">{index + 1}. {name}</span>
                           <button
                             onClick={() => removeName(index)}
-                            className="text-red-500 hover:text-red-700 transition text-xl"
+                            className="text-red-500 hover:text-red-700 transition text-xl font-bold"
+                            title="Remove"
                           >
                             ×
                           </button>
@@ -377,15 +402,6 @@
                       ))
                     )}
                   </div>
-                </div>
-
-                <div className="bg-indigo-100 rounded-xl p-4">
-                  <p className="text-sm text-indigo-800">
-                    💡 <strong>Entry Form URL:</strong><br/>
-                    <a href="https://esando16.github.io/spin-wheel-entry/" target="_blank" className="text-indigo-600 underline break-all">
-                      https://esando16.github.io/spin-wheel-entry/
-                    </a>
-                  </p>
                 </div>
               </div>
             </div>
