@@ -137,7 +137,7 @@
             setIsSpinning(false);
             const finalRotation = currentRotation % 360;
             const sliceAngle = 360 / names.length;
-            const pointerAngle = 0;
+            const pointerAngle = 360;
             const adjustedAngle = (360 - finalRotation + pointerAngle) % 360;
             const winnerIndex = Math.floor(adjustedAngle / sliceAngle) % names.length;
             setWinner(names[winnerIndex]);
@@ -435,3 +435,4 @@
   </script>
 </body>
 </html>
+
