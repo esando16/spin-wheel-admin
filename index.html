@@ -171,14 +171,35 @@
           console.log('Response received, length:', text.length);
           
           const json = JSON.parse(text.substring(47).slice(0, -2));
-          console.log('Parsed JSON:', json);
+          console.log('Full JSON:', json);
           
-          const loadedNames = json.table.rows
-            .slice(1)
-            .map(row => row.c && row.c[0] ? row.c[0].v : null)
-            .filter(name => name && name.trim() && name !== 'Name');
+          // Get ALL rows
+          const allRows = json.table.rows;
+          console.log('Total rows:', allRows.length);
           
-          console.log('Loaded names:', loadedNames);
+          // Log each row to see what we have
+          allRows.forEach((row, idx) => {
+            const value = row.c && row.c[0] ? row.c[0].v : '(empty)';
+            console.log(`Row ${idx}: "${value}"`);
+          });
+          
+          // Extract names - skip row 0 (header), get everything else
+          const loadedNames = allRows
+            .slice(1)  // Skip first row (header)
+            .map(row => {
+              if (!row.c || !row.c[0]) return null;
+              return row.c[0].v;
+            })
+            .filter(name => {
+              // Keep if it's not null, not empty after trim, and not literally "Name"
+              return name !== null && 
+                     name !== undefined && 
+                     String(name).trim() !== '' && 
+                     String(name).trim().toLowerCase() !== 'name';
+            })
+            .map(name => String(name).trim()); // Clean up whitespace
+          
+          console.log('Filtered names:', loadedNames);
           
           if (loadedNames.length === 0) {
             alert('No names found!\n\nMake sure:\n• Sheet is public (Anyone with link → Viewer)\n• Cell A1 has "Name"\n• Names are in column A starting from A2\n• At least one name exists');
