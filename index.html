@@ -6,10 +6,18 @@ export default function SpinTheWheel() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState(null);
-  const [sheetUrl, setSheetUrl] = useState('');
+  const [scriptUrl, setScriptUrl] = useState('');
   const [showSetup, setShowSetup] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem('wheelAdminScriptUrl') || 'https://script.google.com/macros/s/AKfycbw7uFa6PUdtLeEJ7gYMeMb_YIgErWJe7nt7z35dL-osvExst9xOJNLtlf0ZCr-X55H-/exec';
+    if (savedUrl) {
+      setScriptUrl(savedUrl);
+      localStorage.setItem('wheelAdminScriptUrl', savedUrl);
+    }
+  }, []);
 
   useEffect(() => {
     drawWheel();
@@ -124,56 +132,47 @@ export default function SpinTheWheel() {
     animate();
   };
 
-  const loadFromSheet = async () => {
-    if (!sheetUrl) {
-      alert('Please configure Google Sheet URL first in Setup');
+  const loadFromScript = async () => {
+    if (!scriptUrl) {
+      alert('Please configure Google Apps Script URL first in Setup');
       return;
     }
 
     setIsLoading(true);
     try {
-      const sheetId = extractSheetId(sheetUrl);
-      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
-      
-      const response = await fetch(url);
+      const response = await fetch(scriptUrl + '?action=getNames');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const text = await response.text();
-      const json = JSON.parse(text.substring(47).slice(0, -2));
+      const data = await response.json();
       
-      const loadedNames = json.table.rows
-        .slice(1)
-        .map(row => row.c && row.c[0] ? row.c[0].v : null)
-        .filter(name => name && name.trim() && name !== 'Name');
-      
-      if (loadedNames.length === 0) {
-        alert('No names found!\n\nMake sure:\n• Sheet is public (Anyone with link → Viewer)\n• Cell A1 has "Name"\n• Names are in column A starting from A2\n• At least one name exists');
+      if (data.success && data.names) {
+        if (data.names.length === 0) {
+          alert('No names found! Make sure entries have been submitted through the entry form.');
+        } else {
+          alert(`✅ Successfully loaded ${data.names.length} names!`);
+          setNames(data.names);
+          setWinner(null);
+        }
       } else {
-        alert(`✅ Successfully loaded ${loadedNames.length} names!`);
-        setNames(loadedNames);
-        setWinner(null);
+        throw new Error(data.error || 'Failed to load names');
       }
     } catch (error) {
-      alert(`❌ Error loading from sheet:\n${error.message}\n\nChecklist:\n• Is the sheet public?\n• Is the URL correct?\n• Are names in column A?`);
+      alert(`❌ Error loading from script:\n${error.message}\n\nMake sure:\n• Script URL is correct\n• Script is deployed as web app\n• Access is set to "Anyone"`);
     }
     setIsLoading(false);
   };
 
-  const extractSheetId = (url) => {
-    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    return match ? match[1] : url;
-  };
-
-  const saveSheetUrl = () => {
-    if (!sheetUrl) {
-      alert('Please enter a Google Sheet URL');
+  const saveScriptUrl = () => {
+    if (!scriptUrl) {
+      alert('Please enter a Google Apps Script URL');
       return;
     }
+    localStorage.setItem('wheelAdminScriptUrl', scriptUrl);
     setShowSetup(false);
-    alert('✅ Sheet URL saved!\n\nNow click "Refresh Names" to load entries.');
+    alert('✅ Script URL saved!\n\nNow click "Load Names" to fetch entries.');
   };
 
   const addName = () => {
@@ -219,35 +218,38 @@ export default function SpinTheWheel() {
 
         {showSetup && (
           <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Google Sheets Configuration</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Google Apps Script Configuration</h2>
             
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded">
-              <p className="text-sm text-blue-900 font-semibold mb-2">📋 Setup Checklist:</p>
-              <ul className="text-sm text-blue-800 space-y-1 list-disc ml-5">
-                <li>Open your Google Sheet</li>
-                <li>Click Share → "Anyone with the link" → Viewer</li>
-                <li>Cell A1 should contain "Name"</li>
-                <li>Names should be in column A starting from A2</li>
-                <li>Copy the sheet URL from your browser's address bar</li>
-              </ul>
+              <p className="text-sm text-blue-900 font-semibold mb-2">📋 Setup Instructions:</p>
+              <ol className="text-sm text-blue-800 space-y-1 list-decimal ml-5">
+                <li>Open your Google Sheet with entries</li>
+                <li>Go to Extensions → Apps Script</li>
+                <li>Paste the provided script code</li>
+                <li>Click Deploy → New deployment</li>
+                <li>Select type: Web app</li>
+                <li>Execute as: Me</li>
+                <li>Who has access: Anyone</li>
+                <li>Copy the Web App URL and paste below</li>
+              </ol>
             </div>
 
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  📊 Google Sheet URL:
+                  🔗 Google Apps Script URL:
                 </label>
                 <input
                   type="text"
-                  value={sheetUrl}
-                  onChange={(e) => setSheetUrl(e.target.value)}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  value={scriptUrl}
+                  onChange={(e) => setScriptUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/..."
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"
                 />
               </div>
               
               <button
-                onClick={saveSheetUrl}
+                onClick={saveScriptUrl}
                 className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold shadow-lg"
               >
                 💾 Save Configuration
@@ -268,12 +270,12 @@ export default function SpinTheWheel() {
               
               <div className="flex gap-3 flex-wrap justify-center">
                 <button
-                  onClick={loadFromSheet}
-                  disabled={isLoading || !sheetUrl}
+                  onClick={loadFromScript}
+                  disabled={isLoading || !scriptUrl}
                   className="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg flex items-center gap-2"
                 >
                   <span className={isLoading ? 'animate-spin' : ''}>🔄</span>
-                  {isLoading ? 'Loading...' : 'Refresh Names'}
+                  {isLoading ? 'Loading...' : 'Load Names'}
                 </button>
                 
                 <button
@@ -336,10 +338,10 @@ export default function SpinTheWheel() {
                 {names.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-400 text-sm mb-2">No participants yet</p>
-                    {sheetUrl ? (
-                      <p className="text-xs text-gray-500">Click "Refresh Names" to load from Google Sheets</p>
+                    {scriptUrl ? (
+                      <p className="text-xs text-gray-500">Click "Load Names" to fetch from Google Apps Script</p>
                     ) : (
-                      <p className="text-xs text-gray-500">Click "Setup" to configure Google Sheets</p>
+                      <p className="text-xs text-gray-500">Click "Setup" to configure Google Apps Script</p>
                     )}
                   </div>
                 ) : (
