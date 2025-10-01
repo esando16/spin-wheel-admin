@@ -135,7 +135,7 @@ export default function SpinTheWheel() {
       
       const data = await response.json();
       
-      if (data.success && data.names) {
+      if (data.status === 'success' && data.names) {
         if (data.names.length === 0) {
           alert('No names found! Make sure entries have been submitted through the entry form.');
         } else {
@@ -150,16 +150,6 @@ export default function SpinTheWheel() {
       alert(`❌ Error loading from script:\n${error.message}\n\nMake sure:\n• Script URL is correct\n• Script is deployed as web app\n• Access is set to "Anyone"`);
     }
     setIsLoading(false);
-  };
-
-  const saveScriptUrl = () => {
-    if (!scriptUrl) {
-      alert('Please enter a Google Apps Script URL');
-      return;
-    }
-    localStorage.setItem('wheelAdminScriptUrl', scriptUrl);
-    setShowSetup(false);
-    alert('✅ Script URL saved!\n\nNow click "Load Names" to fetch entries.');
   };
 
   const addName = () => {
